@@ -124,7 +124,3 @@ class Receivers:
 
         return (balances, amount)
 
-
-class Group:
-    def __init__(self, default_currency):
-        self.default_currency = default_currency

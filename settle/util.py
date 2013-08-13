@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
+import sys
 
 def shorten(s, length, allow_none=True):
     if s is None and allow_none:
@@ -21,6 +23,12 @@ class Money:
     def __repr__(self):
         return 'Money(%r, %r)' % (self.value, self.currency)
 
+    @classmethod
+    def zero(cls, currency):
+        def zero_():
+            return Money(0, currency)
+        return zero_
+
     def __eq__(self, other):
         return self.currency == other.currency and self.value == other.value
 
@@ -35,3 +43,7 @@ class Money:
             raise ValueError('Cannot subtract different currencies: %r and %r'
                              % (self.currency, other.currency))
         return Money(self.value - other.value, self.currency)
+
+def debug(str):
+    if os.environ.get('SETTLE_DEBUG') == '1':
+        print(str, file=sys.stderr)

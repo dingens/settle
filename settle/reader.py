@@ -1,16 +1,18 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- coding: utf8 -*-
+import os
 import re
 from collections import namedtuple
+from settle.group import Group
 from settle.payment import Payment
-from settle.util import lowercase_keys
+from settle.util import lowercase_keys, debug
 
 _confline_re = re.compile(r'^(?P<k>[^\s]+)\s*:\s*(?P<v>.*)$')
 KVPair = namedtuple('KVPair', ['k', 'v'])
 
 
 def read_payment(f, group):
-    d = read(f)
+    d = read_file(f)
     d = lowercase_keys(d)
     args = {}
 
@@ -20,14 +22,31 @@ def read_payment(f, group):
                 raise ReaderValueError('Duplicate field %s' % k)
             args[k] = v
         else:
-            raise ReaderValueError('Unkown field name: %r in %r' % (k, d))
+            raise ReaderValueError('Unkown field name: %r' % k)
 
     for f in 'giver', 'receivers':
         if f not in d:
             raise ReaderValueError('Required field %s missing' % f)
-    # don't check amount because it is optional with per-recipient amounts
+    # don't check amount here because it is optional with per-recipient amounts
 
     return Payment(group, **args)
+
+
+def read_all_payments(group):
+    for f in find_payment_files(group):
+        print('payment found: %s' % f)
+        yield read_payment(f, group)
+
+
+def find_payment_files(group):
+    dir = group.dir('payments')
+    debug('searching for payments in %s' % dir)
+    for f_ in os.listdir(dir):
+        f = os.path.join(dir, f_)
+        if f[0] != '.' and os.path.isfile(f):
+            yield f
+        else:
+            debug('skipped %s' % f)
 
 
 def read(f):
@@ -74,6 +93,10 @@ def read(f):
         set(last.k, ''.join(last.v))
 
     return d
+
+def read_file(filename):
+    with open(filename) as f:
+        return read(f)
 
 class ReaderError(Exception):
     pass
