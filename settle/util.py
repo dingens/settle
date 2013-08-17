@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+from decimal import Decimal
 
 def shorten(s, length, allow_none=True):
     if s is None and allow_none:
@@ -47,3 +48,6 @@ class Money:
 def debug(str):
     if os.environ.get('SETTLE_DEBUG') == '1':
         print(str, file=sys.stderr)
+
+def format_decimal(n):
+    return '%+.2f' % n

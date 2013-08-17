@@ -5,7 +5,7 @@ import argparse
 import sys
 from settle.balance import get_balances
 from settle.group import Group
-from settle.util import debug
+from settle.util import debug, format_decimal
 
 class Commands:
     _funcdict = None
@@ -18,11 +18,26 @@ class Commands:
         print('new group={} args={}'.format(group, args))
 
     def do_print_balances(self, group, args):
-        print('print balances for %s %s' % (group, args))
-        for name, currencies in get_balances(group).items():
+        if len(args) > 1:
+            raise ValueError('Too many arguments')
+
+        balances = get_balances(group)
+
+        def _p(name):
             print('%s:' % name)
-            for c, v in currencies.items():
-                print('    %s %s' % (c, v))
+            for c, v in balances[name].items():
+                print('    %s %s' % (c, format_decimal(v)))
+
+        if len(args) == 1:
+            name = args[0]
+            bal = get_balances(group)
+            if name in bal:
+                _p(name)
+            else:
+                raise ValueError('Person not found: %s' % name)
+        else:
+            for name in balances:
+                _p(name)
 
     def run(self, args):
         args = args[:]

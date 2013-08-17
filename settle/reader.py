@@ -34,7 +34,7 @@ def read_payment(f, group):
 
 def read_all_payments(group):
     for f in find_payment_files(group):
-        print('payment found: %s' % f)
+        debug('payment found: %s' % f)
         yield read_payment(f, group)
 
 
