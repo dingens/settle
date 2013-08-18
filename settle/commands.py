@@ -3,8 +3,10 @@
 
 import argparse
 import sys
+import settle
 from settle.balance import get_balances
 from settle.group import Group
+from settle.reader import read_all_payments
 from settle.util import debug, format_decimal
 
 class Commands:
@@ -38,6 +40,16 @@ class Commands:
         else:
             for name in balances:
                 _p(name)
+
+    def do_print_payments(self, group, args):
+        if args:
+            raise ValueError('Too many arguments')
+        for payment in read_all_payments(group):
+            print('%-10s %s %s' % (payment.giver, payment.comment or '', payment.time or ''))
+            for user, money in payment.balances:
+                print('  %-10s %s' % (user, money))
+            print()
+
 
     def run(self, args):
         args = args[:]

@@ -3,7 +3,6 @@
 import os
 import re
 from collections import namedtuple
-from settle.group import Group
 from settle.payment import Payment
 from settle.util import lowercase_keys, debug
 
@@ -39,14 +38,14 @@ def read_all_payments(group):
 
 
 def find_payment_files(group):
-    dir = group.dir('payments')
+    dir = group.path('payments')
     debug('searching for payments in %s' % dir)
     for f_ in os.listdir(dir):
         f = os.path.join(dir, f_)
-        if f[0] != '.' and os.path.isfile(f):
+        if f_[0] != '.' and os.path.isfile(f):
             yield f
         else:
-            debug('skipped %s' % f)
+            debug('skip %s' % f)
 
 
 def read(f):
@@ -94,9 +93,25 @@ def read(f):
 
     return d
 
-def read_file(filename):
-    with open(filename) as f:
+_read_file_no_default = object()
+def read_file(filename, default=_read_file_no_default):
+    """
+    Like `read()` but must be given a filename.
+
+    If file does not exist and default is given, return that.
+    Else and on all other kinds of io errors, raise them as usual.
+    """
+    try:
+        f = open(filename)
+    except IOError as e:
+        if e.errno == 2 and default is not _read_file_no_default:
+            return default
+        raise
+
+    try:
         return read(f)
+    finally:
+        f.close()
 
 class ReaderError(Exception):
     pass

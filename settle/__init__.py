@@ -1,5 +1,8 @@
-from settle.payment import *
-from settle.reader import *
-from settle.util import *
-from settle.balance import *
-from settle.group import *
+import settle.payment
+import settle.reader
+import settle.util
+import settle.balance
+import settle.group
+
+DEFAULT_CURRENCY = 'EUR'
+MAX_LIST_RESOLVER_RECURSION_DEPTH = 16

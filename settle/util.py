@@ -24,6 +24,9 @@ class Money:
     def __repr__(self):
         return 'Money(%r, %r)' % (self.value, self.currency)
 
+    def __str__(self):
+        return '%s %s' % (format_decimal(self.value), self.currency)
+
     @classmethod
     def zero(cls, currency):
         def zero_():
@@ -45,9 +48,21 @@ class Money:
                              % (self.currency, other.currency))
         return Money(self.value - other.value, self.currency)
 
+    def __neg__(self):
+        return Money(-self.value, self.currency)
+
+    def __pos__(self):
+        return Money(+self.value, self.currency)
+
+    def __abs__(self):
+        return Money(abs(self.value), self.currency)
+
 def debug(str):
     if os.environ.get('SETTLE_DEBUG') == '1':
         print(str, file=sys.stderr)
 
 def format_decimal(n):
     return '%+.2f' % n
+
+def is_list(s):
+    return s.startswith('%')
