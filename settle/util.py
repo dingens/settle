@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import sys
 from decimal import Decimal
 
@@ -66,3 +67,42 @@ def format_decimal(n):
 
 def is_list(s):
     return s.startswith('%')
+
+def ask(question, long=None, require=None, blank=False, forbidden=None,
+        forbidden_msg='Not allowed. Please enter something else.'):
+    if isinstance(forbidden, str):
+        forbidden = re.compile(forbidden)
+    def check_forbidden(s):
+        if forbidden is None:
+            return True
+        if hasattr(forbidden, 'search'):
+            if forbidden.search(s):
+                print('>', forbidden_msg, file=sys.stderr)
+                return False
+        elif hasattr(forbidden, '__call__'):
+            msg = forbidden(s)
+            if msg:
+                print(msg, file=sys.stderr)
+                return False
+        elif s in forbidden:
+            print(forbidden_msg, file=sys.stderr)
+            return False
+        return True
+
+    if isinstance(require, str):
+        require = re.compile(str)
+
+    r = input(question if not long else question + '(enter for help) ')
+    for i in range(15):
+        if require and require.search(r):
+            if check_forbidden(r):
+                return r
+        if not require and r:
+            if check_forbidden(r):
+                return r
+
+        r = input(long if long else question)
+        if blank and r == '':
+            return r
+
+    raise ValueError('Asked too often, giving up.')

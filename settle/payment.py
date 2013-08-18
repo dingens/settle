@@ -1,9 +1,10 @@
 import re
 from collections import defaultdict
 from decimal import Decimal
+from settle import IDENTIFIER_RE
 from settle.util import debug, is_list, Money, shorten
 
-_receiver_re = re.compile('^(%?[A-Za-z][-_A-Za-z0-9]*)(?:([%=*])([0-9.]+))?$')
+_receiver_re = re.compile(r'^(%?' + IDENTIFIER_RE + r')(?:([%=*])([0-9.]+))?$')
 _receivers_split_re = re.compile(',?[ \t\r\n]+')
 
 
@@ -56,6 +57,10 @@ class Receivers:
         self.group = group
         self.raw_receivers = tuple(raw_receivers)
         self.modifier = modifier
+
+    def __repr__(self):
+        return '<Receivers group=%s, %d receivers>' % (
+            self.group.name, len(self.raw_receivers))
 
     @classmethod
     def from_string(cls, group, s, is_list=False):
