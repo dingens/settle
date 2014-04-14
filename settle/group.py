@@ -50,5 +50,8 @@ class Group:
         p = os.path.join(os.path.expanduser('~'), '.settle', name)
         return os.path.join(p, *subdirs)
 
+    def __eq__(self, other):
+        return self.name == other.name
+
 class NoSuchGroupError(Exception):
     pass

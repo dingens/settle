@@ -1,30 +1,32 @@
 import re
 from collections import defaultdict
 from decimal import Decimal
-from settle import IDENTIFIER_RE
-from settle.util import debug, is_list, Money, shorten
+from settle import IDENTIFIER_RE, IDENTIFIER_SPLIT_RE
+from settle.util import debug, is_list, Money, shorten, format_datetime
 
 _receiver_re = re.compile(r'^(%?' + IDENTIFIER_RE + r')(?:([%=*])([0-9.]+))?$')
-_receivers_split_re = re.compile(',?[ \t\r\n]+')
+_receivers_split_re = re.compile(IDENTIFIER_SPLIT_RE)
 
 
 class Payment:
-    def __init__(self, group, giver, receivers, amount=None, currency=None, time=None, comment=None):
+    def __init__(self, group, giver, receivers, amount=None, currency=None, date=None, comment=None):
         self.group = group
         self.giver = giver
         if isinstance(receivers, str):
             self.receivers = Receivers.from_string(group, receivers)
         else:
+            assert receivers.group == self.group
             self.receivers = receivers
         self.amount = amount if amount is None else Decimal(amount)
+        self.given_currency = currency
         self.currency = currency or group.default_currency
-        self.time = time
+        self.date = date
         self.comment = comment
         self._calculate_balances()
 
     def __repr__(self):
-        return 'Payment(group=%r, giver=%r, receivers=%r, amount=%r, currency=%r, time=%r, comment=%r)' % (
-            self.group, self.giver, self.receivers, self.amount, self.currency, self.time, shorten(self.comment, 50))
+        return 'Payment(group=%r, giver=%r, receivers=%r, amount=%r, currency=%r, date=%r, comment=%r)' % (
+            self.group, self.giver, self.receivers, self.amount, self.currency, self.date, shorten(self.comment, 50))
 
     def _calculate_balances(self):
         from settle import MAX_LIST_RESOLVER_RECURSION_DEPTH
@@ -50,6 +52,20 @@ class Payment:
                 raise RuntimeError('Maximum list resolver recursion depth reached. Maybe there is a loop?')
 
         self.balances.append((self.giver, Money(+self.amount, self.currency)))
+
+    @property
+    def datestr(self):
+        return format_datetime(self.date)
+
+    def serialize(self):
+        return dict(
+            giver=self.giver,
+            receivers=self.receivers.to_string(),
+            amount=self.amount,
+            currency=self.given_currency,
+            date=self.datestr,
+            comment=self.comment,
+        )
 
 
 class Receivers:
@@ -82,7 +98,7 @@ class Receivers:
 
             if mod_ is None:
                 mod_ = '*'
-                value = 1
+                value = Decimal(1)
             else:
                 value = Decimal(value_)
 
@@ -159,3 +175,16 @@ class Receivers:
             raise RuntimeError('Invalid modifier. This should not have happened')
 
         return (balances, amount)
+
+    def to_string(self):
+        res = []
+        if self.modifier == '*':
+            for name, factor in self.raw_receivers:
+                if factor == 1:
+                    res.append(name)
+                else:
+                    res.append('%s*%s' % (name, factor))
+        elif self.modifier in '=%':
+            for name, val in self.raw_receivers:
+                res.append('%s%s%s' % (name, self.modifier, val))
+        return ' '.join(res)

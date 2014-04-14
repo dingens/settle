@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
+import random
 import re
+import string
 import sys
 from decimal import Decimal
 
@@ -62,13 +64,14 @@ def debug(str):
     if os.environ.get('SETTLE_DEBUG') == '1':
         print(str, file=sys.stderr)
 
-def format_decimal(n):
-    return '%+.2f' % n
+def format_decimal(n, sign=True):
+    return ('%+ 7.2f' if sign else '% 7.2f') % n
 
 def is_list(s):
     return s.startswith('%')
 
 def ask(question, long=None, require=None, blank=False, forbidden=None,
+        default=None,
         forbidden_msg='Not allowed. Please enter something else.'):
     if isinstance(forbidden, str):
         forbidden = re.compile(forbidden)
@@ -90,9 +93,14 @@ def ask(question, long=None, require=None, blank=False, forbidden=None,
         return True
 
     if isinstance(require, str):
-        require = re.compile(str)
+        require = re.compile(require)
 
-    r = input(question if not long else question + '(enter for help) ')
+    if default:
+        prompt = '%s[%s] ' % (question, default)
+    else:
+        prompt = question if not long else question + '(enter for help) '
+    r = input(prompt)
+
     for i in range(15):
         if require and require.search(r):
             if check_forbidden(r):
@@ -101,8 +109,50 @@ def ask(question, long=None, require=None, blank=False, forbidden=None,
             if check_forbidden(r):
                 return r
 
-        r = input(long if long else question)
         if blank and r == '':
             return r
+        if default and r == '':
+            return default
+        r = input(long if long else question)
 
     raise ValueError('Asked too often, giving up.')
+
+def generate_random_filename(*prefixes, randlength=8, join='_'):
+    """
+    Generate a random filename, consisting of all non-empty prefixes and a
+    random string of length `randlength`[8] joined by `join`[_].
+
+    N.B.: Sanity of given strings is not checked by this function.
+    """
+    prefixes = list(prefixes)
+    prefixes.append(''.join(random.choice(string.ascii_lowercase + string.digits)
+                            for x in range(randlength)))
+    return join.join(filter(None, prefixes))
+
+def format_datetime(dt, date_only=False):
+    """
+    Format a datetime object in the shortest manner possible, that is
+    only show date if time is midnight, omit second if it zero.
+    If `date_only`=True, only show the date in any case.
+    """
+    if dt is None:
+        return ''
+    elif date_only or dt.hour == dt.minute == dt.second == 0:
+        return dt.strftime('%Y-%m-%d')
+    elif dt.second == 0:
+        return dt.strftime('%Y-%m-%d %H:%M')
+    else:
+        return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+_payment_keys_order = ['giver', 'receivers', 'amount', 'currency', 'date', 'comment']
+def sort_payment_keys(keys):
+    """
+    Sort the given list in the most natural order of the keys of a payment object.
+    """
+    def genkey(k):
+        if k in _payment_keys_order:
+            return (_payment_keys_order.index(k), None)
+        else:
+            return (len(_payment_keys_order), k)
+
+    return sorted(keys, key=genkey)

@@ -2,11 +2,15 @@
 # -*- coding: utf8 -*-
 import os
 import re
+import sys
 from collections import namedtuple
+from dateutil.parser import parse as parse_date
+from settle import FILE_CHARSET
 from settle.payment import Payment
-from settle.util import lowercase_keys, debug
+from settle.util import lowercase_keys, debug, generate_random_filename, format_datetime, sort_payment_keys
 
-_confline_re = re.compile(r'^(?P<k>[^\s]+)\s*:\s*(?P<v>.*)$')
+_confline_re = re.compile(r'^(?P<k>[^\s:]+)\s*:\s*(?P<v>.*)$')
+_key_re = re.compile(r'^[^\s:]+$')
 KVPair = namedtuple('KVPair', ['k', 'v'])
 
 
@@ -15,17 +19,22 @@ def read_payment(f, group):
     d = lowercase_keys(d)
     args = {}
 
+    if d == {}:
+        raise ReaderValueError('File is empty: %r' % f)
+
     for k, v in d.items():
-        if k in ('giver', 'receivers', 'amount', 'currency', 'time', 'comment'):
+        if k in ('giver', 'receivers', 'amount', 'currency', 'comment'):
             if k in args:
                 raise ReaderValueError('Duplicate field %s' % k)
             args[k] = v
+        elif k == 'date':
+            args[k] = parse_date(v)
         else:
             raise ReaderValueError('Unkown field name: %r' % k)
 
-    for f in 'giver', 'receivers':
-        if f not in d:
-            raise ReaderValueError('Required field %s missing' % f)
+    for field in 'giver', 'receivers':
+        if field not in d:
+            raise ReaderValueError('Required field %s missing (file %r)' % (field, f))
     # don't check amount here because it is optional with per-recipient amounts
 
     return Payment(group, **args)
@@ -102,7 +111,7 @@ def read_file(filename, default=_read_file_no_default):
     Else and on all other kinds of io errors, raise them as usual.
     """
     try:
-        f = open(filename)
+        f = open(filename, encoding=FILE_CHARSET)
     except IOError as e:
         if e.errno == 2 and default is not _read_file_no_default:
             return default
@@ -123,6 +132,54 @@ class ReaderDuplicateEntryError(ReaderError):
     pass
 
 class ReaderValueError(ReaderError):
+    pass
+
+def store_payment(payment, filename=None):
+    """
+    Store the Payment to disk as a new file.
+
+    If no filename is given, generate a random one.
+
+    N.B: This is not race condition safe for python < 3.3.
+    """
+    if filename is not None:
+        path = payment.group.path('payments', filename)
+        if os.path.exists(path):
+            raise ValueError('File already exists: %r' % path)
+
+    while filename is None:
+        filename = generate_random_filename(
+            format_datetime(payment.date, date_only=True),
+            payment.giver)
+        debug(filename)
+        path = payment.group.path('payments', filename)
+
+        if os.path.exists(path):
+            filename = None
+
+    mode = 'w' if sys.version_info < (3,3) else 'wx'
+
+    with open(path, mode, encoding=FILE_CHARSET) as f:
+        write(f, payment.serialize())
+
+def write(f, data):
+    for k in sort_payment_keys(data):
+        if not _key_re.match(k):
+            raise WriterKeyValueError('Invalid characters in key: %r' % k)
+
+        if data[k] is None:
+            continue
+
+        if '\n' in str(data[k]):
+            f.write('%s:\n    %s\n' % (k, data[k].replace('\n', '\n    ')))
+        else:
+            f.write('%s: %s\n' % (k, data[k]))
+    f.flush()
+
+class WriterError(Exception):
+    pass
+
+class WriterKeyValueError(WriterError):
     pass
 
 if __name__ == '__main__':
