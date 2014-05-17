@@ -157,7 +157,7 @@ def store_payment(payment, filename=None):
         if os.path.exists(path):
             filename = None
 
-    mode = 'w' if sys.version_info < (3,3) else 'wx'
+    mode = 'w' if sys.version_info < (3,3) else 'x'
 
     with open(path, mode, encoding=FILE_CHARSET) as f:
         write(f, payment.serialize())
